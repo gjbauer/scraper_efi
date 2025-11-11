@@ -1,0 +1,8 @@
+[package]
+name = "scraper_efi"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+log = "0.4.28"
+uefi = { version = "0.36.1", features = [ "panic_handler", "logger" ] }
