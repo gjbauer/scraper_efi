@@ -95,12 +95,13 @@ fn main() -> uefi::Result {
 	let mut root = fs_protocol.open_volume()?;
 
 	let mut file_handles: [Option<FileHandle>; 16] = [const { None }; 16];
-	let mut gb_mul_four: usize = block.1 / (1024*1024);
+	let mut gb_mul_four = block.1 / (1024*1024);
 	if ( block.1 % (1024*1024) ) > 0 { gb_mul_four += 1; }
 	println!("gb_mul_four = {}", gb_mul_four);
 	for i in 0..gb_mul_four {
 		let mut it = number_to_cstr16(i as u64).unwrap();
 		it.push_str(cstr16!(".bin"));
+		println!("{}", it);
 		// Open a file
 		let file_handle = root.open(
 			&it,
@@ -110,19 +111,26 @@ fn main() -> uefi::Result {
 		file_handles[i as usize] = Some(file_handle);
 	}
 
-	for (index, file_handle) in file_handles.into_iter().enumerate() {
+	// Using .into_iter().enumerate() breaks the ability to create and write to files...
+	let mut index = 0;
+	let mut buffer: [u8; 4096] = [0; 4096];
+	for file_handle in file_handles {
 		if !file_handle.is_none() {
 			if let FileType::Regular(mut file) = file_handle.unwrap().into_type()? {
 				let mut end = (index+1)*block.1/gb_mul_four;
 				if index == gb_mul_four-1 { end=block.1; }
 				println!("end = {}", end);
 				for i in index*block.1/gb_mul_four..end {
-					let mut buffer: [u8; 4096] = [0; 4096];
-					let _ = copy_memory_via_slice(i as u64, 4096, &mut buffer);
-					file.write(&mut buffer).discard_errdata()?;
+					println!("i = {}", i);
+					let _ = copy_memory_via_slice( block.0 + (i as u64*4096), 4096, &mut buffer);
+					//file.set_position((i - index*block.1/gb_mul_four) as u64 * 4096)?;
+					file.write(&buffer).discard_errdata()?;
+					file.flush()?;
 				}
+				//file.flush()?;
 			}
 		}
+		index += 1;
 	}
 	boot::stall(Duration::from_secs(60));
 	Ok(())
