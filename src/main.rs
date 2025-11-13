@@ -1,17 +1,18 @@
 #![no_main]
 #![no_std]
 
-use core::time::Duration;
 use uefi::prelude::*;
 use uefi::boot;
 use uefi::println;
+use uefi::print;
 use uefi::mem::memory_map::MemoryMap;
 use uefi::mem::memory_map::MemoryType;
 use uefi::proto::media::file::{FileMode, FileAttribute, FileType};
 use uefi::proto::media::file::File;
+use uefi::proto::media::file::FileHandle;
 use uefi::CString16;
 use uefi::Char16;
-use uefi::proto::media::file::FileHandle;
+use uefi::runtime::{self, ResetType};
 
 #[entry]
 fn start() -> Status {
@@ -97,11 +98,10 @@ fn main() -> uefi::Result {
 	let mut file_handles: [Option<FileHandle>; 16] = [const { None }; 16];
 	let mut gb_mul_four = block.1 / (1024*1024);
 	if ( block.1 % (1024*1024) ) > 0 { gb_mul_four += 1; }
-	println!("gb_mul_four = {}", gb_mul_four);
+	println!("Splitting dump across {} file(s)...", gb_mul_four);
 	for i in 0..gb_mul_four {
 		let mut it = number_to_cstr16(i as u64).unwrap();
 		it.push_str(cstr16!(".bin"));
-		println!("{}", it);
 		// Open a file
 		let file_handle = root.open(
 			&it,
@@ -111,28 +111,23 @@ fn main() -> uefi::Result {
 		file_handles[i as usize] = Some(file_handle);
 	}
 
-	// Using .into_iter().enumerate() breaks the ability to create and write to files...
-	let mut index = 0;
 	let mut buffer: [u8; 4096] = [0; 4096];
-	for file_handle in file_handles {
+	for (index, file_handle) in file_handles.into_iter().enumerate() {
 		if !file_handle.is_none() {
 			if let FileType::Regular(mut file) = file_handle.unwrap().into_type()? {
 				let mut end = (index+1)*block.1/gb_mul_four;
 				if index == gb_mul_four-1 { end=block.1; }
-				println!("end = {}", end);
-				for i in index*block.1/gb_mul_four..end {
-					println!("i = {}", i);
+				let start = index*block.1/gb_mul_four;
+				for i in start..end {
+					print!("Dumping Memory: {:3.2} %\r", 100.00 * i as f32 / block.1 as f32 );
 					let _ = copy_memory_via_slice( block.0 + (i as u64*4096), 4096, &mut buffer);
-					//file.set_position((i - index*block.1/gb_mul_four) as u64 * 4096)?;
 					file.write(&buffer).discard_errdata()?;
-					file.flush()?;
+					if i % 8 == 0 { file.flush()?; }
 				}
-				//file.flush()?;
 			}
 		}
-		index += 1;
 	}
-	boot::stall(Duration::from_secs(60));
-	Ok(())
+	println!("Shutting down system...");
+	runtime::reset(ResetType::SHUTDOWN, Status::SUCCESS, None);
 }
 
