@@ -1,3 +1,0 @@
-[submodule "rustup-riscv64gc-unknown-uefi"]
-	path = rustup-riscv64gc-unknown-uefi
-	url = https://github.com/gjbauer/rustup-riscv64gc-unknown-uefi.git
