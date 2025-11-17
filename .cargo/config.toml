@@ -1,5 +1,5 @@
 [build]
-target = "rustup-riscv64gc-unknown-uefi/riscv64gc-unknown-uefi.json"
+target = "riscv64gc-unknown-none-elf"
 
 [unstable]
 build-std = ["core", "alloc"]
@@ -9,5 +9,4 @@ build-std-features = ["compiler-builtins-mem"]
 linker = "rust-lld"
 rustflags = [
     "-C", "link-arg=-nostdlib",
-    "-C", "link-arg=-Tlinker.ld",
 ]
