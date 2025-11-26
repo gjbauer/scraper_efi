@@ -124,6 +124,7 @@ fn main() -> uefi::Result {
 					file.write(&buffer).discard_errdata()?;
 					if i % 8 == 0 { file.flush()?; }
 				}
+				file.flush()?;
 			}
 		}
 	}
